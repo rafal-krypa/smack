@@ -726,17 +726,9 @@ static int accesses_print(struct smack_accesses *handle, int clear,
 	if (!use_long && handle->has_long)
 		return -1;
 
-	merge_perms = calloc(handle->labels_cnt, sizeof(*merge_perms));
-	if (merge_perms == NULL) {
-		ret = -1;
-		goto out;
-	}
-
-	merge_object_ids = malloc(handle->labels_cnt * sizeof(*merge_object_ids));
-	if (merge_object_ids == NULL) {
-		ret = -1;
-		goto out;
-	}
+	merge_object_ids = alloca(handle->labels_cnt * sizeof(*merge_object_ids));
+	merge_perms = alloca(handle->labels_cnt * sizeof(*merge_perms));
+	memset(merge_perms, 0, handle->labels_cnt * sizeof(*merge_perms));
 
 	for (x = 0; x < handle->labels_cnt; ++x) {
 		subject_label = handle->labels[x];
@@ -822,8 +814,6 @@ static int accesses_print(struct smack_accesses *handle, int clear,
 	ret = 0;
 
 out:
-	free(merge_perms);
-	free(merge_object_ids);
 	return ret;
 }
 
