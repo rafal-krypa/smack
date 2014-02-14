@@ -926,15 +926,15 @@ static struct smack_label *label_add(struct smack_accesses *handle, const char *
 	struct smack_label *new_label;
 	int len;
 
-	if (handle->labels_cnt == MAX_LABELS_CNT)
-		return NULL;
-
 	len = get_label(NULL, label, &hash_value);
 	if (len == -1)
 		return NULL;
 
 	new_label = is_label_known(handle, label, hash_value);
 	if (new_label == NULL) {/*no entry added yet*/
+		if (handle->labels_cnt == MAX_LABELS_CNT)
+			return NULL;
+
 		if (handle->labels_cnt == handle->labels_alloc) {
 			struct smack_label **new_labels;
 			int size = handle->labels_alloc * 2 * sizeof(struct smack_label *);
