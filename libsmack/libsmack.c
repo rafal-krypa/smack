@@ -717,9 +717,11 @@ static int accesses_print(struct smack_accesses *handle, int clear,
 	struct smack_label *subject_label;
 	struct smack_label *object_label;
 	struct smack_rule *rule;
-	union smack_perm *perm;
+	union smack_perm perm;
+	union smack_perm perm2;
 	union smack_perm *merge_perms = NULL;
 	uint16_t *merge_object_ids = NULL;
+	uint16_t object_id;
 	int merge_cnt;
 	int ret;
 	int fd;
@@ -746,28 +748,42 @@ static int accesses_print(struct smack_accesses *handle, int clear,
 	for (x = 0; x < handle->labels_cnt; ++x) {
 		subject_label = handle->labels[x];
 		merge_cnt = 0;
-		for (rule = subject_label->first_rule; rule != NULL; rule = rule->next_rule) {
-			perm = &merge_perms[rule->object_id];
-			if (perm->allow_deny_code == 0)
-				merge_object_ids[merge_cnt++] = rule->object_id;
-
-			if (clear) {
-				perm->allow_code = 0;
-				perm->deny_code  = ACCESS_TYPE_ALL;
-			} else {
-				perm->allow_code |=  rule->perm.allow_code;
-				perm->allow_code &= ~rule->perm.deny_code;
-				perm->deny_code  &= ~rule->perm.allow_code;
-				perm->deny_code  |=  rule->perm.deny_code;
+		if (clear) {
+			perm.allow_code = 0;
+			perm.deny_code  = ACCESS_TYPE_ALL;
+			for (rule = subject_label->first_rule; rule != NULL; rule = rule->next_rule) {
+				object_id = rule->object_id;
+				if (merge_perms[object_id].allow_deny_code == 0) {
+					merge_object_ids[merge_cnt++] = object_id;
+					merge_perms[object_id] = perm;
+				}
+			}
+		} else {
+			for (rule = subject_label->first_rule; rule != NULL; rule = rule->next_rule) {
+				object_id = rule->object_id;
+				perm = merge_perms[object_id];
+				perm2 = rule->perm;
+				if (perm.allow_deny_code == 0) {
+					merge_object_ids[merge_cnt++] = object_id;
+					perm = perm2;
+				} else {
+					perm.allow_code |=  perm2.allow_code;
+					perm.allow_code &= ~perm2.deny_code;
+					perm.deny_code  &= ~perm2.allow_code;
+					perm.deny_code  |=  perm2.deny_code;
+				}
+				merge_perms[rule->object_id] = perm;
 			}
 		}
 
 		for (y = 0; y < merge_cnt; ++y) {
-			object_label = handle->labels[merge_object_ids[y]];
-			perm = &merge_perms[object_label->id];
-			access_code_to_str(perm->allow_code, allow_str);
+			object_id = merge_object_ids[y];
+			object_label = handle->labels[object_id];
+			perm = merge_perms[object_id];
+			merge_perms[object_id].allow_deny_code = 0;
+			access_code_to_str(perm.allow_code, allow_str);
 
-			if ((perm->allow_code | perm->deny_code) != ACCESS_TYPE_ALL) {
+			if ((perm.allow_code | perm.deny_code) != ACCESS_TYPE_ALL) {
 				/* Fail immediately without doing any further processing
 				   if modify rules are not supported. */
 				if (change_fd < 0) {
@@ -776,7 +792,7 @@ static int accesses_print(struct smack_accesses *handle, int clear,
 				}
 
 				fd = change_fd;
-				access_code_to_str(perm->deny_code, deny_str);
+				access_code_to_str(perm.deny_code, deny_str);
 				cnt = snprintf(buf, LOAD_LEN + 1, KERNEL_MODIFY_FORMAT,
 					subject_label->label, object_label->label,
 					allow_str, deny_str);
@@ -791,7 +807,6 @@ static int accesses_print(struct smack_accesses *handle, int clear,
 						subject_label->label, object_label->label,
 						allow_str);
 			}
-			perm->allow_deny_code = 0;
 
 			if (cnt < 0) {
 				ret = -1;
