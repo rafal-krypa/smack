@@ -60,7 +60,7 @@
 
 #define ACCESS_TYPE_ALL ((1 << ACC_LEN) - 1)
 
-#define DICT_HASH_SIZE 4096
+#define DICT_HASH_SIZE 4093
 #define MAX_LABELS_CNT (UINT16_MAX + 1)
 
 extern char *smackfs_mnt;
@@ -101,7 +101,7 @@ struct smack_accesses {
 	int labels_cnt;
 	int labels_alloc;
 	struct smack_label **labels;
-	struct smack_hash_entry *label_hash;
+	struct smack_hash_entry label_hash[DICT_HASH_SIZE];
 };
 
 struct cipso_mapping {
@@ -139,9 +139,6 @@ int smack_accesses_new(struct smack_accesses **accesses)
 	result->labels = malloc(128 * sizeof(struct smack_label *));
 	if (result->labels == NULL)
 		goto err_out;
-	result->label_hash = calloc(DICT_HASH_SIZE, sizeof(struct smack_hash_entry));
-	if (result->label_hash == NULL)
-		goto err_out;
 	*accesses = result;
 	return 0;
 
@@ -171,7 +168,6 @@ void smack_accesses_free(struct smack_accesses *handle)
 		free(handle->labels[i]);
 	}
 
-	free(handle->label_hash);
 	free(handle->labels);
 	free(handle);
 }
