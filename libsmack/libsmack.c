@@ -289,10 +289,7 @@ int smack_accesses_add_from_file(struct smack_accesses *accesses, int fd)
 			return -1;
 		}
 
-		if (access2 == NULL)
-			ret = smack_accesses_add(accesses, subject, object, access);
-		else
-			ret = smack_accesses_add_modify(accesses, subject, object, access, access2);
+		ret = accesses_add(accesses, subject, object, access, access2);
 
 		if (ret) {
 			fclose(file);
